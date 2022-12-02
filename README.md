@@ -5,7 +5,7 @@ StarRocks中所有SQL的审计日志保存在本地fe/log/fe.audit.log里，没�
 
 ##### 注意：
 
-1、在使用插件时，随着StarRocks的迭代升级，审计日志fe.audit.log中的字段个数也在逐渐增多，所以不同的StarRocks版本需要使用对应版本的插件，同时在StarRocks中存放审计日志的表的创建语句也要随之调整，下面演示所用的建表语句适用于**StarRocks 2.3**版本。
+1、在使用插件时，随着StarRocks的迭代升级，审计日志fe.audit.log中的字段个数也在逐渐增多，所以不同的StarRocks版本需要使用对应版本的插件，同时在StarRocks中存放审计日志的表的创建语句也要随之调整，下面演示所用的建表语句适用于**StarRocks 2.4**版本。
 
 2、在开发插件时，若发现StarRocks新迭代版本中的审计日志格式出现了变化，则需要替换工程中的fe-plugins-auditloader\lib\starrocks-fe.jar，同时修改代码中和字段相关的内容。
 
@@ -31,7 +31,9 @@ CREATE TABLE starrocks_audit_db__.starrocks_audit_tbl__ (
   `timestamp` DATETIME NOT NULL COMMENT "查询开始时间",
   `clientIp` VARCHAR(32) COMMENT "客户端IP",
   `user` VARCHAR(64) COMMENT "查询用户名",
+  `authorizedUser` VARCHAR(64) COMMENT "认证用户名",
   `resourceGroup` VARCHAR(64) COMMENT "资源组名",
+  `catalog` VARCHAR(96) COMMENT "查询所在目录",
   `db` VARCHAR(96) COMMENT "查询所在数据库",
   `state` VARCHAR(8) COMMENT "查询状态（EOF，ERR，OK）",
   `errorCode` VARCHAR(96) COMMENT "错误码",
@@ -123,17 +125,15 @@ user=root
 password=
 ```
 
-修改完成后，再将上面的三个文件重新打包为zip包备用：
+##### 3、编译打包
 
 ```SHELL
-[root@node01 ~]# zip -q -m -r auditloader.zip auditloader.jar plugin.conf plugin.properties
+[root@node01 ~]# mvn package
 ```
 
-**注意：这句命令会将需要打包的文件移动到auditloader.zip中，并覆盖该目录下原有的auditloader.zip文件。也即执行完打包命令后，该目录下只会保留一个最新的auditloader.zip插件包文件。**
 
 
-
-##### 3、分发插件
+##### 4、分发插件
 
 将auditloader.zip分发至集群所有FE节点，各节点分发路径需要一致。例如我们都分发至StarRocks部署目录/opt/module/starrocks/下，也即auditloader.zip文件在集群所有FE节点的路径都为：
 
@@ -143,7 +143,7 @@ password=
 
 
 
-##### 4、安装插件
+##### 5、安装插件
 
 StarRocks安装本地插件的语法为：
 
@@ -200,7 +200,7 @@ UNINSTALL PLUGIN plugin_name;
 
 
 
-##### 5、查看数据
+##### 6、查看数据
 
 AuditLoader插件安装完成后，审计日志文件中的数据并不是实时的入库。StarRocks后台会按照我们配置文件plugin.conf中配置的参数，攒批60秒或50M执行一次Stream Load导入。等待期间，我们可以简单执行几条SQL语句，看对应的审计数据是否能够正常入库，例如执行：
 
